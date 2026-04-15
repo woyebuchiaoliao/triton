@@ -1,6 +1,10 @@
 add_triton_library(TritonGPUTransforms
   AccelerateMatmul.cpp
+  BuildAccessFootprint.cpp
+  BuildEquivalenceClass.cpp
   Coalesce.cpp
+  LoadCanonicalizeAndAnnotate.cpp
+  OptimizeLoadLayoutAttr.cpp
   F32DotTC.cpp
   FuseNestedLoops.cpp
   CombineTensorSelectAndIf.cpp

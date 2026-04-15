@@ -246,6 +246,75 @@ def TritonGPUCoalesce: Pass<"tritongpu-coalesce", "mlir::ModuleOp"> {
   let dependentDialects = ["mlir::triton::gpu::TritonGPUDialect"];
 }
 
+def TritonGPULoadCanonicalizeAndAnnotate
+    : Pass<"tritongpu-load-canonicalize-and-annotate", "mlir::ModuleOp"> {
+  let summary = "add default mesh attributes to candidate triton.load ops";
+
+  let description = [{
+    This pass starts from `triton.dot` compute ops, tags dot-level mesh
+    attributes, then traces operands backward to producer `triton.load` ops and
+    annotates them with mesh flow direction. For loads that feed dot operand#0
+    the flow is `west`; for operand#1 the flow is `north`. Loads not traced from
+    any dot keep `unknown` flow.
+  }];
+
+  let dependentDialects = [
+    "mlir::triton::TritonDialect",
+    "mlir::triton::gpu::TritonGPUDialect"
+  ];
+}
+
+def TritonGPUBuildAccessFootprint
+    : Pass<"tritongpu-build-access-footprint", "mlir::ModuleOp"> {
+  let summary = "extract mesh access-footprint metadata for triton.load ops";
+
+  let description = [{
+    This pass extracts a coarse AccessFootprint view for each `triton.load`,
+    including base pointer, backward slice of start-expression producers, result
+    shape/rank, and mask presence.
+  }];
+
+  let dependentDialects = [
+    "mlir::triton::TritonDialect",
+    "mlir::triton::gpu::TritonGPUDialect"
+  ];
+}
+
+def TritonGPUBuildEquivalenceClass
+    : Pass<"tritongpu-build-equivalence-class", "mlir::ModuleOp"> {
+  let summary = "build equivalence classes for load access footprints";
+
+  let description = [{
+    This pass builds a domain-aware grouping plan for each `triton.load` by
+    comparing `logical_block_id + startExpr` signatures inside a domain.
+    Domain size defaults to 32 logical blocks. If startExpr cannot be evaluated
+    for a given load, the pass falls back to singleton grouping for safety.
+    The pass emits `mesh.group.*` metadata that pass4 consumes.
+  }];
+
+  let dependentDialects = [
+    "mlir::triton::TritonDialect",
+    "mlir::triton::gpu::TritonGPUDialect"
+  ];
+}
+
+def TritonGPUOptimizeLoadLayoutAttr
+    : Pass<"tritongpu-optimize-load-layout-attr", "mlir::ModuleOp"> {
+  let summary = "derive load sharing/layout optimization attrs from eq classes";
+
+  let description = [{
+    This pass consumes domain grouping metadata (`mesh.group.*`) and writes
+    conservative optimization decisions (`mesh.opt.*` and `mesh.share.*`).
+    Broadcast is enabled only when a domain group has more than one member and
+    mask constraints allow sharing.
+  }];
+
+  let dependentDialects = [
+    "mlir::triton::TritonDialect",
+    "mlir::triton::gpu::TritonGPUDialect"
+  ];
+}
+
 
 def TritonGPURemoveLayoutConversions : Pass<"tritongpu-remove-layout-conversions", "mlir::ModuleOp"> {
   let summary = "remove superfluous layout conversions";
